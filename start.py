@@ -103,8 +103,8 @@ if __name__ == "__main__":
 
     print(f"[*] Connecting to GitHub gists...")
     protocol = Protocol(
-        send_pipe=GithubTransport.from_conf(1),
-        rcv_pipe=GithubTransport.from_conf(2),
+        send_pipe=GithubTransport.from_conf(1, sleep_for=1.0),
+        rcv_pipe=GithubTransport.from_conf(2, sleep_for=1.0),
     )
     print(f"[*] Connected. Starting tunnel on port {PORT}...")
     print(f"[*] Make sure ground daemon is running on your desktop")
