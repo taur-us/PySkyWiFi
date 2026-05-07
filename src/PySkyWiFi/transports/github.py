@@ -6,7 +6,7 @@ from PySkyWiFi.transports import load_config
 
 class GithubTransport(Transport):
 
-    def __init__(self, gist_id: str, token: str, segment_data_size: int=30, sleep_for: float=0.5):
+    def __init__(self, gist_id: str, token: str, segment_data_size: int=400, sleep_for: float=0.5):
         self.gist_id = gist_id
         self.token = token
 
@@ -14,7 +14,7 @@ class GithubTransport(Transport):
         self._sleep_for = sleep_for
 
     @staticmethod
-    def from_conf(block_id: int, segment_data_size: int=30, sleep_for: float=0.5) -> "GithubTransport":
+    def from_conf(block_id: int, segment_data_size: int=400, sleep_for: float=0.5) -> "GithubTransport":
         conf = load_config()
         block = conf["github"][block_id]
 
