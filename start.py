@@ -91,6 +91,11 @@ if __name__ == "__main__":
 
     check_deps()
 
+    # Always clear proxy settings on startup in case previous run didn't clean up
+    unset_windows_proxy()
+    for k in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "NO_PROXY", "no_proxy"]:
+        os.environ.pop(k, None)
+
     # Import and init transports BEFORE setting any proxy env vars
     # so PyGithub connects directly to api.github.com
     from PySkyWiFi import Protocol
