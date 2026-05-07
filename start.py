@@ -79,16 +79,9 @@ def launch_chrome(port):
     print("[!] Chrome not found - open it manually, proxy is already set system-wide")
 
 
-def run_proxy():
-    from PySkyWiFi import Protocol
-    from PySkyWiFi.transports.github import GithubTransport
+def run_proxy(protocol):
     from PySkyWiFi.http.local_proxy import run
-
-    p = Protocol(
-        send_pipe=GithubTransport.from_conf(1),
-        rcv_pipe=GithubTransport.from_conf(2),
-    )
-    run(p, port=PORT)
+    run(protocol, port=PORT)
 
 
 if __name__ == "__main__":
@@ -98,16 +91,26 @@ if __name__ == "__main__":
 
     check_deps()
 
-    print(f"[*] Local proxy starting on port {PORT}...")
+    # Import and init transports BEFORE setting any proxy env vars
+    # so PyGithub connects directly to api.github.com
+    from PySkyWiFi import Protocol
+    from PySkyWiFi.transports.github import GithubTransport
+
+    print(f"[*] Connecting to GitHub gists...")
+    protocol = Protocol(
+        send_pipe=GithubTransport.from_conf(1),
+        rcv_pipe=GithubTransport.from_conf(2),
+    )
+    print(f"[*] Connected. Starting tunnel on port {PORT}...")
     print(f"[*] Make sure ground daemon is running on your desktop")
     print(f"[*] Press Ctrl+C to stop\n")
 
-    # Start proxy in background thread, then set proxy env vars once it's up
-    proxy_thread = threading.Thread(target=run_proxy, daemon=True)
+    # Start proxy in background thread
+    proxy_thread = threading.Thread(target=run_proxy, args=(protocol,), daemon=True)
     proxy_thread.start()
-    time.sleep(2)  # Give the proxy socket time to bind
+    time.sleep(1)
 
-    # Set env vars for Claude Code — exclude api.github.com (it's the transport)
+    # Now safe to set proxy env vars — GitHub clients already initialised
     no_proxy = "api.github.com,localhost,127.0.0.1"
     os.environ["HTTP_PROXY"] = f"http://127.0.0.1:{PORT}"
     os.environ["HTTPS_PROXY"] = f"http://127.0.0.1:{PORT}"
@@ -115,13 +118,10 @@ if __name__ == "__main__":
     os.environ["https_proxy"] = f"http://127.0.0.1:{PORT}"
     os.environ["NO_PROXY"] = no_proxy
     os.environ["no_proxy"] = no_proxy
-    print(f"[*] HTTP_PROXY / HTTPS_PROXY set to http://127.0.0.1:{PORT}")
-    print(f"[*] NO_PROXY set to {no_proxy}")
+    print(f"[*] HTTP_PROXY / HTTPS_PROXY -> http://127.0.0.1:{PORT}")
+    print(f"[*] NO_PROXY -> {no_proxy}")
 
-    # Set Windows system proxy (used by Chrome, Edge, IE)
     set_windows_proxy(PORT)
-
-    # Launch Chrome
     launch_chrome(PORT)
 
     print(f"[*] Ready. Tunnel is live.\n")
