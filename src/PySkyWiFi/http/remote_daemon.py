@@ -13,10 +13,13 @@ def parse_request(request_data):
     lines = request_data.split('\r\n')
     request_line = lines[0]
     method, full_path, _ = request_line.split()
-    url_parts = full_path.split('://', 1)[-1].split('/', 1)
+    if '://' in full_path:
+        scheme, rest = full_path.split('://', 1)
+    else:
+        scheme, rest = 'https', full_path
+    url_parts = rest.split('/', 1)
     host = url_parts[0].split(':')[0]
     path = '/' + url_parts[1] if len(url_parts) > 1 else '/'
-    scheme = 'https' if '443' in url_parts[0] else 'http'
 
     i = 1
     while lines[i] and ':' in lines[i]:
