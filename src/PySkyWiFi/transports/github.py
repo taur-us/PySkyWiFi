@@ -1,4 +1,5 @@
 import base64
+import os
 import github
 from PySkyWiFi import Transport
 from PySkyWiFi.transports import load_config
@@ -10,10 +11,14 @@ class GithubTransport(Transport):
         self.gist_id = gist_id
         self._sleep_for = sleep_for
         self._fernet = fernet
-        # Connect directly to GitHub, bypassing any proxy env vars
-        self._client = github.Github(token)
-        self._client._Github__requester._Requester__session.proxies = {}
-        self._gist = self._client.get_gist(gist_id)
+        # Temporarily clear proxy env vars so PyGithub connects directly
+        _proxy_keys = ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]
+        _saved = {k: os.environ.pop(k) for k in _proxy_keys if k in os.environ}
+        try:
+            self._client = github.Github(token)
+            self._gist = self._client.get_gist(gist_id)
+        finally:
+            os.environ.update(_saved)
         self._filename = list(self._gist.files)[0]
 
     @staticmethod
