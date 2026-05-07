@@ -98,12 +98,25 @@ if __name__ == "__main__":
 
     check_deps()
 
-    # Set env vars for Claude Code and any other tools that respect them
+    print(f"[*] Local proxy starting on port {PORT}...")
+    print(f"[*] Make sure ground daemon is running on your desktop")
+    print(f"[*] Press Ctrl+C to stop\n")
+
+    # Start proxy in background thread, then set proxy env vars once it's up
+    proxy_thread = threading.Thread(target=run_proxy, daemon=True)
+    proxy_thread.start()
+    time.sleep(2)  # Give the proxy socket time to bind
+
+    # Set env vars for Claude Code — exclude api.github.com (it's the transport)
+    no_proxy = "api.github.com,localhost,127.0.0.1"
     os.environ["HTTP_PROXY"] = f"http://127.0.0.1:{PORT}"
     os.environ["HTTPS_PROXY"] = f"http://127.0.0.1:{PORT}"
     os.environ["http_proxy"] = f"http://127.0.0.1:{PORT}"
     os.environ["https_proxy"] = f"http://127.0.0.1:{PORT}"
+    os.environ["NO_PROXY"] = no_proxy
+    os.environ["no_proxy"] = no_proxy
     print(f"[*] HTTP_PROXY / HTTPS_PROXY set to http://127.0.0.1:{PORT}")
+    print(f"[*] NO_PROXY set to {no_proxy}")
 
     # Set Windows system proxy (used by Chrome, Edge, IE)
     set_windows_proxy(PORT)
@@ -111,12 +124,10 @@ if __name__ == "__main__":
     # Launch Chrome
     launch_chrome(PORT)
 
-    print(f"[*] Local proxy starting on port {PORT}...")
-    print(f"[*] Make sure ground daemon is running on your desktop")
-    print(f"[*] Press Ctrl+C to stop\n")
+    print(f"[*] Ready. Tunnel is live.\n")
 
     try:
-        run_proxy()
+        proxy_thread.join()
     except KeyboardInterrupt:
         pass
     finally:

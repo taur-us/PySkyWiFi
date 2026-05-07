@@ -10,7 +10,9 @@ class GithubTransport(Transport):
         self.gist_id = gist_id
         self._sleep_for = sleep_for
         self._fernet = fernet
+        # Connect directly to GitHub, bypassing any proxy env vars
         self._client = github.Github(token)
+        self._client._Github__requester._Requester__session.proxies = {}
         self._gist = self._client.get_gist(gist_id)
         self._filename = list(self._gist.files)[0]
 
