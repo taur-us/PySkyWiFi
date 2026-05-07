@@ -1,5 +1,6 @@
 import socket
 import base64
+import threading
 
 from PySkyWiFi import Protocol
 
@@ -90,45 +91,48 @@ def handle_connect(client_connection, host, port, protocol):
         protocol.close()
 
 
+def handle_client(client_connection, protocol):
+    try:
+        first_data = client_connection.recv(4096, socket.MSG_PEEK).decode('utf-8', errors='replace')
+        first_line = first_data.split('\r\n')[0]
+
+        if first_line.startswith('CONNECT '):
+            buf = b""
+            while b"\r\n\r\n" not in buf:
+                buf += client_connection.recv(1)
+            parts = first_line.split(' ')
+            host_port = parts[1]
+            host, port_str = host_port.rsplit(':', 1)
+            handle_connect(client_connection, host, int(port_str), protocol)
+        else:
+            request_data = receive_http_request(lambda: client_connection.recv(1024).decode('utf-8'))
+            try:
+                protocol.connect()
+                protocol.send(request_data)
+                res = receive_http_response(protocol.recv_and_sleep)
+                client_connection.send(res.encode('utf-8'))
+            finally:
+                protocol.close()
+    except Exception as e:
+        print(f"[!] Error: {e}")
+    finally:
+        try:
+            client_connection.close()
+        except Exception:
+            pass
+
+
 def run(protocol: Protocol, port: int=9090):
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind(('localhost', port))
-    server_socket.listen(5)
+    server_socket.listen(50)
     print(f"Server is listening on port {port}...")
 
     try:
         while True:
             client_connection, _ = server_socket.accept()
-            try:
-                # Peek at the first line to detect CONNECT
-                first_data = client_connection.recv(4096, socket.MSG_PEEK).decode('utf-8', errors='replace')
-                first_line = first_data.split('\r\n')[0]
-
-                if first_line.startswith('CONNECT '):
-                    # Consume the full headers
-                    buf = b""
-                    while b"\r\n\r\n" not in buf:
-                        buf += client_connection.recv(1)
-                    parts = first_line.split(' ')
-                    host_port = parts[1]
-                    host, port_str = host_port.rsplit(':', 1)
-                    handle_connect(client_connection, host, int(port_str), protocol)
-                else:
-                    request_data = receive_http_request(lambda: client_connection.recv(1024).decode('utf-8'))
-                    try:
-                        protocol.connect()
-                        protocol.send(request_data)
-                        res = receive_http_response(protocol.recv_and_sleep)
-                        client_connection.send(res.encode('utf-8'))
-                        client_connection.close()
-                    finally:
-                        protocol.close()
-            except Exception as e:
-                print(f"[!] Error handling request: {e}")
-                try:
-                    client_connection.close()
-                except Exception:
-                    pass
+            t = threading.Thread(target=handle_client, args=(client_connection, protocol), daemon=True)
+            t.start()
     finally:
         server_socket.close()
